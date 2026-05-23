@@ -1,0 +1,17 @@
+{
+  "name": "nexload",
+  "version": "2.0.0",
+  "description": "Universal Media Downloader — Serverless on Vercel",
+  "scripts": {
+    "dev": "vercel dev",
+    "build": "echo 'Static files already in /public'",
+    "deploy": "vercel --prod"
+  },
+  "dependencies": {
+    "yt-dlp-exec": "^1.0.2"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  },
+  "license": "MIT"
+}

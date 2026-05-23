@@ -1,0 +1,35 @@
+{
+  "version": 2,
+  "buildCommand": "npm run build",
+  "outputDirectory": "public",
+  "functions": {
+    "api/**/*.js": {
+      "maxDuration": 60,
+      "memory": 1024
+    }
+  },
+  "rewrites": [
+    { "source": "/api/analyze",  "destination": "/api/analyze" },
+    { "source": "/api/stream",   "destination": "/api/stream"  },
+    { "source": "/api/detect",   "destination": "/api/detect"  },
+    { "source": "/api/health",   "destination": "/api/health"  },
+    { "source": "/(.*)",         "destination": "/index.html"  }
+  ],
+  "headers": [
+    {
+      "source": "/api/(.*)",
+      "headers": [
+        { "key": "Access-Control-Allow-Origin",  "value": "*" },
+        { "key": "Access-Control-Allow-Methods", "value": "GET, POST, OPTIONS" },
+        { "key": "Access-Control-Allow-Headers", "value": "Content-Type" }
+      ]
+    },
+    {
+      "source": "/api/stream",
+      "headers": [
+        { "key": "X-Accel-Buffering", "value": "no" },
+        { "key": "Cache-Control",     "value": "no-cache, no-transform" }
+      ]
+    }
+  ]
+}
