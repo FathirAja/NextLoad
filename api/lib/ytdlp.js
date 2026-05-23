@@ -1,4 +1,4 @@
-'use strict';
+"use strict";
 
 /**
  * yt-dlp wrapper for serverless environments.
@@ -7,7 +7,7 @@
 
 let ytDlp;
 function getYtDlp() {
-  if (!ytDlp) ytDlp = require('yt-dlp-exec');
+  if (!ytDlp) ytDlp = require("yt-dlp-exec");
   return ytDlp;
 }
 
@@ -40,7 +40,9 @@ function buildFormats(info) {
 
   // Best combined video+audio MP4 per resolution
   const videoFmts = formats
-    .filter(f => f.vcodec !== 'none' && f.acodec !== 'none' && f.ext === 'mp4')
+    .filter(
+      (f) => f.vcodec !== "none" && f.acodec !== "none" && f.ext === "mp4",
+    )
     .sort((a, b) => (b.height || 0) - (a.height || 0));
 
   for (const f of videoFmts) {
@@ -48,11 +50,22 @@ function buildFormats(info) {
     if (seen.has(key)) continue;
     seen.add(key);
     result.push({
-      formatId:    f.format_id,
-      quality:     f.height ? `${f.height}p` : 'Original',
-      format:      'mp4',
-      size:        f.filesize ? fmtBytes(f.filesize) : (f.filesize_approx ? `~${fmtBytes(f.filesize_approx)}` : '?'),
-      label:       f.height >= 1080 ? 'Full HD' : f.height >= 720 ? 'HD' : f.height >= 480 ? 'SD' : 'Low',
+      formatId: f.format_id,
+      quality: f.height ? `${f.height}p` : "Original",
+      format: "mp4",
+      size: f.filesize
+        ? fmtBytes(f.filesize)
+        : f.filesize_approx
+          ? `~${fmtBytes(f.filesize_approx)}`
+          : "?",
+      label:
+        f.height >= 1080
+          ? "Full HD"
+          : f.height >= 720
+            ? "HD"
+            : f.height >= 480
+              ? "SD"
+              : "Low",
       recommended: result.length === 0,
     });
     if (result.length >= 4) break;
@@ -60,20 +73,27 @@ function buildFormats(info) {
 
   // Fallback: best available video
   if (result.length === 0) {
-    result.push({ formatId: 'bestvideo+bestaudio/best', quality: 'Best', format: info.ext || 'mp4', size: '?', label: 'Best Quality', recommended: true });
+    result.push({
+      formatId: "bestvideo+bestaudio/best",
+      quality: "Best",
+      format: info.ext || "mp4",
+      size: "?",
+      label: "Best Quality",
+      recommended: true,
+    });
   }
 
   // Separate audio: best audio-only → mp3
   const audioFmt = formats
-    .filter(f => f.vcodec === 'none' && f.acodec !== 'none')
+    .filter((f) => f.vcodec === "none" && f.acodec !== "none")
     .sort((a, b) => (b.abr || 0) - (a.abr || 0))[0];
   if (audioFmt) {
     result.push({
-      formatId:    audioFmt.format_id,
-      quality:     `${Math.round(audioFmt.abr || 128)}kbps`,
-      format:      'mp3',
-      size:        audioFmt.filesize ? fmtBytes(audioFmt.filesize) : '?',
-      label:       'Audio Only',
+      formatId: audioFmt.format_id,
+      quality: `${Math.round(audioFmt.abr || 128)}kbps`,
+      format: "mp3",
+      size: audioFmt.filesize ? fmtBytes(audioFmt.filesize) : "?",
+      label: "Audio Only",
       recommended: false,
     });
   }
@@ -89,8 +109,49 @@ function fmtBytes(b) {
 
 function fmtDuration(s) {
   if (!s) return null;
-  const h = Math.floor(s / 3600), m = Math.floor((s % 3600) / 60), sec = Math.floor(s % 60);
-  return h > 0 ? `${h}:${String(m).padStart(2,'0')}:${String(sec).padStart(2,'0')}` : `${m}:${String(sec).padStart(2,'0')}`;
+  const h = Math.floor(s / 3600),
+    m = Math.floor((s % 3600) / 60),
+    sec = Math.floor(s % 60);
+  return h > 0
+    ? `${h}:${String(m).padStart(2, "0")}:${String(sec).padStart(2, "0")}`
+    : `${m}:${String(sec).padStart(2, "0")}`;
 }
 
-module.exports = { getInfo, buildFormats, fmtDuration };
+function normalizeYtDlpErrorText(err) {
+  const parts = [err?.message, err?.stderr, err?.stdout]
+    .filter(Boolean)
+    .map(String);
+  return parts.join("\n").replace(/\s+/g, " ").trim().toLowerCase();
+}
+
+function classifyYtDlpError(err) {
+  const text = normalizeYtDlpErrorText(err);
+  if (!text) return null;
+
+  if (/(private video|private media|private account|private)/.test(text)) {
+    return { status: 422, error: "This media is private." };
+  }
+
+  if (/(age[- ]?restricted|sign in|login|authentication)/.test(text)) {
+    return {
+      status: 422,
+      error: "Age-restricted content — cannot fetch without login.",
+    };
+  }
+
+  if (
+    /(unsupported url|unsupported website|unsupported format|unable to download webpage|http error 404|404|not found|no such)/.test(
+      text,
+    )
+  ) {
+    return {
+      status: 422,
+      error:
+        "yt-dlp could not find media at this URL. It may be private or unsupported.",
+    };
+  }
+
+  return null;
+}
+
+module.exports = { getInfo, buildFormats, fmtDuration, classifyYtDlpError };
